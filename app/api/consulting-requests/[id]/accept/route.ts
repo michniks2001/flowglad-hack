@@ -56,7 +56,7 @@ export async function POST(
     // Start analysis
     try {
       const projectData = await analyzeProject(request.projectUrl);
-      const analysis = await analyzeRepository({
+      const analysisWithUi = await analyzeRepository({
         repoName: projectData.name,
         readme: projectData.content,
         dependencies: projectData.dependencies,
@@ -64,6 +64,7 @@ export async function POST(
         url: projectData.url,
         source: projectData.source,
       });
+      const { uiConfiguration, ...analysis } = analysisWithUi as any;
 
       const proposalId = crypto.randomUUID();
       const services = mapServicesToProposal(analysis);
@@ -73,6 +74,7 @@ export async function POST(
         clientName: request.businessName,
         repoUrl: request.projectUrl,
         analysis,
+        uiConfiguration,
         services,
         generatedAt: new Date().toISOString(),
       };

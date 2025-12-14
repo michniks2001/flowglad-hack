@@ -16,6 +16,11 @@ export interface ConsultingRequest {
   updatedAt: Date;
 }
 
+// MongoDB document shape (ObjectId in DB, string in app/interface)
+type ConsultingRequestDoc = Omit<ConsultingRequest, '_id'> & { _id?: ObjectId };
+type ConsultingRequestDocWithId = Omit<ConsultingRequest, '_id'> & { _id: ObjectId };
+type ConsultingRequestInsert = Omit<ConsultingRequestDoc, '_id'>;
+
 export async function createConsultingRequest(requestData: {
   businessId: string;
   businessName: string;
@@ -28,14 +33,14 @@ export async function createConsultingRequest(requestData: {
   const client = await clientPromise;
   const db = client.db();
   
-  const newRequest: Omit<ConsultingRequest, '_id'> = {
+  const newRequest: ConsultingRequestInsert = {
     ...requestData,
     status: 'pending',
     createdAt: new Date(),
     updatedAt: new Date(),
   };
 
-  const result = await db.collection<ConsultingRequest>('consulting_requests').insertOne(newRequest as ConsultingRequest);
+  const result = await db.collection<ConsultingRequestDoc>('consulting_requests').insertOne(newRequest);
   return { ...newRequest, _id: result.insertedId.toString() };
 }
 
@@ -52,12 +57,12 @@ export async function getConsultingRequests(filters?: {
   if (filters?.consultantId) query.consultantId = filters.consultantId;
   if (filters?.status) query.status = filters.status;
 
-  const requests = await db.collection<ConsultingRequest>('consulting_requests')
+  const requests = await db.collection<ConsultingRequestDocWithId>('consulting_requests')
     .find(query)
     .sort({ createdAt: -1 })
     .toArray();
   
-  return requests;
+  return requests.map((r) => ({ ...r, _id: r._id.toString() }));
 }
 
 export async function getConsultingRequestById(id: string): Promise<ConsultingRequest | null> {
@@ -73,7 +78,7 @@ export async function getConsultingRequestById(id: string): Promise<ConsultingRe
     return null;
   }
   
-  const request = await db.collection<ConsultingRequest>('consulting_requests').findOne({ _id: objectId });
+  const request = await db.collection<ConsultingRequestDocWithId>('consulting_requests').findOne({ _id: objectId });
   
   // Convert ObjectId to string for consistency
   if (request && request._id) {
@@ -85,7 +90,7 @@ export async function getConsultingRequestById(id: string): Promise<ConsultingRe
 
 export async function updateConsultingRequest(
   id: string,
-  updates: Partial<ConsultingRequest>
+  updates: Partial<Omit<ConsultingRequest, '_id'>>
 ): Promise<ConsultingRequest | null> {
   const client = await clientPromise;
   const db = client.db();
@@ -99,20 +104,22 @@ export async function updateConsultingRequest(
     return null;
   }
   
-  const result = await db.collection<ConsultingRequest>('consulting_requests').findOneAndUpdate(
+  // Never allow updating the MongoDB _id field.
+  const { ...safeUpdates } = updates;
+
+  const updated = await db.collection<ConsultingRequestDocWithId>('consulting_requests').findOneAndUpdate(
     { _id: objectId },
     { 
       $set: { 
-        ...updates, 
+        ...safeUpdates, 
         updatedAt: new Date() 
       } 
     },
     { returnDocument: 'after' }
   );
   
-  // Convert ObjectId to string for consistency
-  if (result && result._id) {
-    return { ...result, _id: result._id.toString() };
+  if (updated && updated._id) {
+    return { ...updated, _id: updated._id.toString() };
   }
   
   return null;

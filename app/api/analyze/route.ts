@@ -32,7 +32,7 @@ export async function POST(req: Request) {
     // Step 2: Analyze with Gemini
     console.log('Step 2: Analyzing with Gemini (gemini-2.5-flash-lite)...');
     // Convert project data to format expected by Gemini analyzer
-    const analysis = await analyzeRepository({
+    const analysisWithUi = await analyzeRepository({
       repoName: projectData.name,
       readme: projectData.content,
       dependencies: projectData.dependencies,
@@ -40,6 +40,7 @@ export async function POST(req: Request) {
       url: projectData.url,
       source: projectData.source,
     });
+    const { uiConfiguration, ...analysis } = analysisWithUi as any;
     console.log('Analysis complete:', {
       techStack: analysis.techStack.length,
       issues: analysis.issues.length,
@@ -62,6 +63,7 @@ export async function POST(req: Request) {
       clientName: clientName,
       repoUrl: projectUrl,
       analysis,
+      uiConfiguration,
       services,
       generatedAt: new Date().toISOString(),
     };

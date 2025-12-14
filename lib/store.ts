@@ -1,34 +1,7 @@
 // Simple in-memory store for proposals (use a database in production)
-interface Proposal {
-  id: string;
-  clientName: string;
-  repoUrl: string;
-  analysis: {
-    techStack: string[];
-    issues: Array<{
-      id: string;
-      title: string;
-      severity: 'critical' | 'high' | 'medium' | 'low';
-      description: string;
-      impact: string;
-      recommendedService: string;
-    }>;
-    opportunities: Array<{
-      title: string;
-      description: string;
-      recommendedService: string;
-    }>;
-  };
-  services: Array<{
-    id: string;
-    name: string;
-    description: string;
-    price: number;
-    timeline: string;
-    included: string[];
-  }>;
-  generatedAt: string;
-}
+import type { Proposal } from '@/lib/types/proposal';
+
+export type { Proposal } from '@/lib/types/proposal';
 
 // In development, Next/Turbopack can reload modules and/or serve different route handlers
 // in different workers. Keep an in-process cache on globalThis to survive HMR within a worker.

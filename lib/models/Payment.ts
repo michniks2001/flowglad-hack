@@ -1,5 +1,5 @@
 import clientPromise from '../mongodb';
-import { ObjectId } from 'mongodb';
+import { ObjectId, type Db } from 'mongodb';
 
 export type PaymentStatus = 'pending' | 'paid' | 'failed';
 export type PaymentProvider = 'flowglad' | 'demo';
@@ -25,8 +25,10 @@ export interface Payment {
   paidAt?: Date;
 }
 
-function paymentsCollection(db: any) {
-  return db.collection<Payment>('payments');
+type PaymentDoc = Omit<Payment, '_id'> & { _id?: ObjectId };
+
+function paymentsCollection(db: Db) {
+  return db.collection<PaymentDoc>('payments');
 }
 
 export async function createPayment(input: Omit<Payment, '_id' | 'createdAt' | 'updatedAt'>) {
@@ -34,7 +36,7 @@ export async function createPayment(input: Omit<Payment, '_id' | 'createdAt' | '
   const db = client.db();
 
   const now = new Date();
-  const doc: Omit<Payment, '_id'> = {
+  const doc: Omit<PaymentDoc, '_id'> = {
     ...input,
     createdAt: now,
     updatedAt: now,
@@ -52,21 +54,24 @@ export async function createPayment(input: Omit<Payment, '_id' | 'createdAt' | '
 
 export async function updatePaymentByPaymentId(
   paymentId: string,
-  updates: Partial<Payment>
+  updates: Partial<Omit<Payment, '_id'>>
 ): Promise<Payment | null> {
   const client = await clientPromise;
   const db = client.db();
 
-  const result = await paymentsCollection(db).findOneAndUpdate(
+  // Never allow updating MongoDB _id
+  // (and avoid typing mismatches: Payment._id is string, DB _id is ObjectId)
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { ...safeUpdates } = updates;
+
+  const updated = await paymentsCollection(db).findOneAndUpdate(
     { paymentId },
-    { $set: { ...updates, updatedAt: new Date() } },
+    { $set: { ...safeUpdates, updatedAt: new Date() } },
     { returnDocument: 'after' }
   );
 
-  const payment = result as any;
-  if (!payment) return null;
-  if (payment._id) return { ...payment, _id: payment._id.toString() };
-  return payment;
+  if (!updated) return null;
+  return updated._id ? ({ ...(updated as any), _id: updated._id.toString() } as Payment) : (updated as any);
 }
 
 export async function markPaymentPaid(paymentId: string): Promise<Payment | null> {
@@ -85,7 +90,7 @@ export async function getPaymentsByProposalIds(proposalIds: string[]): Promise<P
     .sort({ createdAt: -1 })
     .toArray();
 
-  return payments.map((p: any) => (p._id ? { ...p, _id: p._id.toString() } : p));
+  return payments.map((p) => (p._id ? ({ ...(p as any), _id: p._id.toString() } as Payment) : (p as any)));
 }
 
 

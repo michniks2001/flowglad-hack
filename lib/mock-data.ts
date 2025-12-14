@@ -1,7 +1,8 @@
 import { SERVICES } from './flowglad';
+import { buildDefaultUiConfiguration } from '@/lib/ui-config';
 
 export function getMockProposal() {
-  return {
+  const proposal = {
     id: 'demo',
     clientName: 'Acme Corp',
     repoUrl: 'https://github.com/acme/app',
@@ -69,5 +70,6 @@ export function getMockProposal() {
     ],
     generatedAt: new Date().toISOString(),
   };
+  return { ...proposal, uiConfiguration: buildDefaultUiConfiguration(proposal.analysis) };
 }
 

@@ -5,7 +5,7 @@ import { useUser } from '@auth0/nextjs-auth0/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Plus, ExternalLink, RefreshCw } from 'lucide-react';
+import { Loader2, Plus, ExternalLink, RefreshCw, Sparkles, ArrowUpRight } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 interface ConsultingRequest {
@@ -83,45 +83,77 @@ export default function BusinessDashboard() {
     }
   };
 
-  const getStatusColor = (status: string) => {
+  const getStatusBadge = (status: string) => {
     switch (status) {
       case 'pending':
-        return 'secondary';
+        return { variant: 'secondary' as const, className: 'bg-gray-100 text-gray-800', label: 'pending' };
       case 'analyzing':
-        return 'default';
+        return { variant: 'secondary' as const, className: 'bg-indigo-50 text-indigo-700', label: 'analyzing' };
       case 'proposal_ready':
-        return 'default';
+        return { variant: 'secondary' as const, className: 'bg-green-50 text-green-700', label: 'proposal ready' };
       case 'accepted':
-        return 'default';
+        return { variant: 'secondary' as const, className: 'bg-blue-50 text-blue-700', label: 'accepted' };
       case 'rejected':
-        return 'destructive';
+        return { variant: 'destructive' as const, className: '', label: 'rejected' };
       default:
-        return 'secondary';
+        return { variant: 'secondary' as const, className: 'bg-gray-100 text-gray-800', label: status.replace('_', ' ') };
     }
+  };
+
+  const stats = {
+    total: requests.length,
+    analyzing: requests.filter((r) => r.status === 'analyzing').length,
+    ready: requests.filter((r) => r.status === 'proposal_ready' && r.proposalId).length,
   };
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
-          <h2 className="text-3xl font-bold text-gray-900">My Consulting Requests</h2>
-          <p className="text-gray-600 mt-1">Create requests and view proposals</p>
+          <div className="flex items-center gap-2">
+            <div className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-50 text-indigo-700">
+              <Sparkles className="h-5 w-5" />
+            </div>
+            <h2 className="text-3xl font-semibold tracking-tight text-gray-900">My Requests</h2>
+          </div>
+          <p className="text-gray-600 mt-2">Create a request, assign a consultant by email, and review proposals.</p>
         </div>
         <div className="flex gap-2">
-          <Button onClick={fetchRequests} variant="outline" size="sm">
+          <Button onClick={fetchRequests} variant="black" size="sm">
             <RefreshCw className="w-4 h-4 mr-2" />
             Refresh
           </Button>
-          <Button onClick={() => setShowCreateForm(!showCreateForm)} size="sm">
+          <Button variant="black" onClick={() => setShowCreateForm(!showCreateForm)} size="sm">
             <Plus className="w-4 h-4 mr-2" />
             New Request
           </Button>
         </div>
       </div>
 
+      <div className="grid gap-4 sm:grid-cols-3">
+        <Card className="border-gray-200/70 bg-white/70 backdrop-blur">
+          <CardHeader className="pb-2">
+            <CardDescription>Total</CardDescription>
+            <CardTitle className="text-3xl">{stats.total}</CardTitle>
+          </CardHeader>
+        </Card>
+        <Card className="border-gray-200/70 bg-white/70 backdrop-blur">
+          <CardHeader className="pb-2">
+            <CardDescription>Analyzing</CardDescription>
+            <CardTitle className="text-3xl text-indigo-700">{stats.analyzing}</CardTitle>
+          </CardHeader>
+        </Card>
+        <Card className="border-gray-200/70 bg-white/70 backdrop-blur">
+          <CardHeader className="pb-2">
+            <CardDescription>Proposals ready</CardDescription>
+            <CardTitle className="text-3xl text-green-700">{stats.ready}</CardTitle>
+          </CardHeader>
+        </Card>
+      </div>
+
       {/* Create Request Form */}
       {showCreateForm && (
-        <Card className="border-2 border-indigo-200">
+        <Card className="border-gray-200/70 bg-white/80 backdrop-blur shadow-sm">
           <CardHeader>
             <CardTitle>Create Consulting Request</CardTitle>
             <CardDescription>
@@ -140,7 +172,7 @@ export default function BusinessDashboard() {
                   value={consultantEmail}
                   onChange={(e) => setConsultantEmail(e.target.value)}
                   placeholder="consultant@example.com"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent bg-white"
                   required
                 />
                 <p className="mt-1 text-sm text-gray-500">
@@ -157,7 +189,7 @@ export default function BusinessDashboard() {
                   value={projectUrl}
                   onChange={(e) => setProjectUrl(e.target.value)}
                   placeholder="https://github.com/username/repo or https://example.com"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent bg-white"
                   required
                 />
                 <p className="mt-1 text-sm text-gray-500">
@@ -165,7 +197,7 @@ export default function BusinessDashboard() {
                 </p>
               </div>
               <div className="flex gap-2">
-                <Button type="submit" disabled={isSubmitting}>
+                <Button variant="black" type="submit" disabled={isSubmitting}>
                   {isSubmitting ? (
                     <>
                       <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -200,18 +232,24 @@ export default function BusinessDashboard() {
       ) : requests.length > 0 ? (
         <div className="grid gap-4">
           {requests.map((request) => (
-            <Card key={request._id}>
+            <Card key={request._id} className="border-gray-200/70 bg-white/70 backdrop-blur">
               <CardHeader>
-                <div className="flex items-start justify-between">
-                  <div>
+                <div className="flex items-start justify-between gap-4">
+                  <div className="min-w-0">
                     <CardTitle className="text-lg">Request #{request._id.slice(-8)}</CardTitle>
-                    <CardDescription>
+                    <CardDescription className="truncate">
                       Created {new Date(request.createdAt).toLocaleDateString()}
+                      {request.consultantEmail ? ` • Assigned to ${request.consultantEmail}` : ''}
                     </CardDescription>
                   </div>
-                  <Badge variant={getStatusColor(request.status)}>
-                    {request.status.replace('_', ' ')}
-                  </Badge>
+                  {(() => {
+                    const s = getStatusBadge(request.status);
+                    return (
+                      <Badge variant={s.variant} className={s.className}>
+                        {s.label}
+                      </Badge>
+                    );
+                  })()}
                 </div>
               </CardHeader>
               <CardContent>
@@ -222,7 +260,7 @@ export default function BusinessDashboard() {
                       href={request.projectUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-indigo-600 hover:underline flex items-center gap-1"
+                      className="text-indigo-700 hover:underline flex items-center gap-1 break-all"
                     >
                       {request.projectUrl}
                       <ExternalLink className="w-3 h-3" />
@@ -232,19 +270,14 @@ export default function BusinessDashboard() {
                     <p className="text-sm font-medium text-gray-700">Type:</p>
                     <Badge variant="outline">{request.projectType}</Badge>
                   </div>
-                  {request.consultantEmail && (
-                    <div>
-                      <p className="text-sm font-medium text-gray-700">Assigned Consultant:</p>
-                      <p className="text-sm text-gray-700">{request.consultantEmail}</p>
-                    </div>
-                  )}
                   {request.proposalId && (
                     <div>
                       <Button
                         onClick={() => router.push(`/proposal/${request.proposalId}`)}
                         size="sm"
+                        variant="black"
                       >
-                        View Proposal
+                        View Proposal <ArrowUpRight className="w-4 h-4 ml-2" />
                       </Button>
                     </div>
                   )}
@@ -260,10 +293,10 @@ export default function BusinessDashboard() {
           ))}
         </div>
       ) : (
-        <Card>
+        <Card className="border-gray-200/70 bg-white/70 backdrop-blur">
           <CardContent className="py-12 text-center">
             <p className="text-gray-600 mb-4">No consulting requests yet</p>
-            <Button onClick={() => setShowCreateForm(true)}>
+            <Button variant="black" onClick={() => setShowCreateForm(true)}>
               <Plus className="w-4 h-4 mr-2" />
               Create Your First Request
             </Button>

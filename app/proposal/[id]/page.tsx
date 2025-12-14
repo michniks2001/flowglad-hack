@@ -5,51 +5,20 @@ import { useParams, useRouter } from 'next/navigation';
 import { useUser } from '@auth0/nextjs-auth0/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
 import { 
-  AlertTriangle, 
-  Lightbulb, 
-  CheckCircle2, 
   ArrowRight, 
   DollarSign,
-  Calendar,
   Sparkles,
   Share2
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { getMockProposal } from '@/lib/mock-data';
+import { DynamicProposalRenderer } from '@/components/proposal/DynamicProposalRenderer';
+import type { Proposal } from '@/lib/types/proposal';
 
-interface Proposal {
-  id: string;
-  clientName: string;
-  repoUrl: string;
-  analysis: {
-    techStack: string[];
-    issues: Array<{
-      id: string;
-      title: string;
-      severity: 'critical' | 'high' | 'medium' | 'low';
-      description: string;
-      impact: string;
-      recommendedService: string;
-    }>;
-    opportunities: Array<{
-      title: string;
-      description: string;
-      recommendedService: string;
-    }>;
-  };
-  services: Array<{
-    id: string;
-    name: string;
-    description: string;
-    price: number;
-    timeline: string;
-    included: string[];
-  }>;
-  generatedAt: string;
+function asRecord(v: unknown): Record<string, unknown> {
+  return v && typeof v === 'object' ? (v as Record<string, unknown>) : {};
 }
 
 export default function ProposalPage() {
@@ -152,7 +121,7 @@ export default function ProposalPage() {
         // Read body ONCE, then parse if possible (redirects/middleware can return HTML)
         const responseText = await response.text();
         const contentType = response.headers.get('content-type') || '';
-        let parsed: any = null;
+        let parsed: unknown = null;
         if (responseText) {
           try {
             parsed = JSON.parse(responseText);
@@ -162,11 +131,8 @@ export default function ProposalPage() {
         }
 
         if (!response.ok) {
-          const errorData = parsed && typeof parsed === 'object' ? parsed : { error: 'Non-JSON error response', body: responseText?.slice(0, 200) };
-          const errorMessage =
-            errorData?.error ||
-            errorData?.message ||
-            `HTTP ${response.status}: ${response.statusText}`;
+          const errorData = asRecord(parsed);
+          const errorMessage = (errorData.error as string) || (errorData.message as string) || `HTTP ${response.status}: ${response.statusText}`;
 
           console.error('Failed to fetch proposal:', {
             status: response.status,
@@ -193,9 +159,9 @@ export default function ProposalPage() {
         }
         
         // Success response: prefer parsed JSON, fallback to parsing the text
-        const data = parsed && typeof parsed === 'object' ? parsed : (() => {
+        const data = (parsed && typeof parsed === 'object' ? parsed : (() => {
           throw new Error(`Expected JSON proposal but got: ${contentType || 'unknown content-type'} (${responseText?.slice(0, 200)})`);
-        })();
+        })()) as Proposal;
 
         console.log('Proposal fetched successfully:', data.id);
         
@@ -209,11 +175,9 @@ export default function ProposalPage() {
         
         // Auto-select services recommended by critical issues (only once per proposal)
         if (data.analysis?.issues && !hasAutoSelectedRef.current) {
-          const criticalIssues = data.analysis.issues.filter(
-            (issue: any) => issue.severity === 'critical'
-          );
+          const criticalIssues = data.analysis.issues.filter((issue) => issue.severity === 'critical');
           const autoSelected = new Set<string>(
-            criticalIssues.map((issue: any) => issue.recommendedService).filter(Boolean)
+            criticalIssues.map((issue) => issue.recommendedService).filter(Boolean)
           );
           if (autoSelected.size > 0) {
             setSelectedServices(autoSelected);
@@ -222,13 +186,14 @@ export default function ProposalPage() {
         }
         
         setIsLoading(false);
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.error('Error fetching proposal:', error);
         
         // Check if component is still mounted before updating state
         if (!isMountedRef.current) return;
         
-        alert(`Failed to load proposal: ${error.message || 'Unknown error'}\n\nRedirecting to home...`);
+        const message = error instanceof Error ? error.message : 'Unknown error';
+        alert(`Failed to load proposal: ${message}\n\nRedirecting to home...`);
         router.push('/');
         setIsLoading(false);
       } finally {
@@ -295,72 +260,83 @@ export default function ProposalPage() {
 
       // Read response as text first (can only read once)
       const responseText = await response.text();
-      let data: any = {};
+      let data: unknown = {};
       
       // Try to parse as JSON
       if (responseText) {
         try {
           data = JSON.parse(responseText);
-        } catch (parseError) {
+        } catch {
           console.error('Failed to parse JSON response:', responseText);
           alert(`Checkout failed: ${response.status} ${response.statusText}\n\nResponse: ${responseText.substring(0, 200)}`);
           setIsSubmitting(false);
           return;
         }
       }
+      const dataObj = asRecord(data);
 
       if (!response.ok) {
         // Show detailed error message
-        const errorMessage = data.error || data.message || `Failed to create checkout session (${response.status})`;
-        const details = data.details || data.errorDetails?.message ? `\n\nDetails: ${data.details || data.errorDetails?.message}` : '';
-        const warning = data.warning ? `\n\nNote: ${data.warning}` : '';
+        const errorMessage =
+          (dataObj.error as string) ||
+          (dataObj.message as string) ||
+          `Failed to create checkout session (${response.status})`;
+        const detailsValue =
+          (dataObj.details as string) ||
+          (asRecord(dataObj.errorDetails).message as string) ||
+          '';
+        const details = detailsValue ? `\n\nDetails: ${detailsValue}` : '';
+        const warningValue = (dataObj.warning as string) || '';
+        const warning = warningValue ? `\n\nNote: ${warningValue}` : '';
         
         console.error('Checkout API error:', {
           status: response.status,
           statusText: response.statusText,
           responseText: responseText,
-          parsedData: data,
+          parsedData: dataObj,
         });
         alert(`${errorMessage}${details}${warning}`);
         
         // If there's a fallback checkout URL, use it
-        if (data.checkoutUrl) {
-          router.push(data.checkoutUrl);
+        if (typeof dataObj.checkoutUrl === 'string') {
+          router.push(dataObj.checkoutUrl);
         }
         setIsSubmitting(false);
         return;
       }
       
       // Handle multi-session responses (e.g. product checkout per service)
-      if (Array.isArray(data.checkoutSessions) && data.checkoutSessions.length > 0) {
-        const firstCheckout = data.checkoutSessions[0];
-        console.log('Multiple checkout sessions created:', data.checkoutSessions);
+      if (Array.isArray(dataObj.checkoutSessions) && dataObj.checkoutSessions.length > 0) {
+        const firstCheckout = asRecord(dataObj.checkoutSessions[0]);
+        console.log('Multiple checkout sessions created:', dataObj.checkoutSessions);
         
-        if (firstCheckout.checkoutUrl) {
-          if (firstCheckout.checkoutUrl.startsWith('http://') || firstCheckout.checkoutUrl.startsWith('https://')) {
-            window.location.href = firstCheckout.checkoutUrl;
+        const checkoutUrl = typeof firstCheckout.checkoutUrl === 'string' ? firstCheckout.checkoutUrl : '';
+        if (checkoutUrl) {
+          if (checkoutUrl.startsWith('http://') || checkoutUrl.startsWith('https://')) {
+            window.location.href = checkoutUrl;
           } else {
-            router.push(firstCheckout.checkoutUrl);
+            router.push(checkoutUrl);
           }
         } else {
           throw new Error('No checkout URL in first session');
         }
-      } else if (data.checkoutUrl) {
+      } else if (typeof dataObj.checkoutUrl === 'string') {
         // Combined checkout - single URL for all services
         // Check if it's a full URL (Flowglad) or relative path (demo mode)
-        if (data.checkoutUrl.startsWith('http://') || data.checkoutUrl.startsWith('https://')) {
+        if (dataObj.checkoutUrl.startsWith('http://') || dataObj.checkoutUrl.startsWith('https://')) {
           // Flowglad checkout - redirect to external URL
-          window.location.href = data.checkoutUrl;
+          window.location.href = dataObj.checkoutUrl;
         } else {
           // Demo mode - use internal routing
-          router.push(data.checkoutUrl);
+          router.push(dataObj.checkoutUrl);
         }
       } else {
         throw new Error('No checkout URL received');
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Checkout error:', error);
-      alert(`Failed to proceed to checkout: ${error.message || 'Unknown error'}. Please check the console for details.`);
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      alert(`Failed to proceed to checkout: ${message}. Please check the console for details.`);
     } finally {
       setIsSubmitting(false);
     }
@@ -380,41 +356,6 @@ export default function ProposalPage() {
   if (!proposal) {
     return null;
   }
-
-  const criticalIssues = proposal.analysis.issues.filter((i) => i.severity === 'critical');
-  const highIssues = proposal.analysis.issues.filter((i) => i.severity === 'high');
-  const mediumIssues = proposal.analysis.issues.filter((i) => i.severity === 'medium');
-  const lowIssues = proposal.analysis.issues.filter((i) => i.severity === 'low');
-
-  const getSeverityColor = (severity: string) => {
-    switch (severity) {
-      case 'critical':
-        return 'critical';
-      case 'high':
-        return 'high';
-      case 'medium':
-        return 'medium';
-      case 'low':
-        return 'low';
-      default:
-        return 'default';
-    }
-  };
-
-  const getSeverityIcon = (severity: string) => {
-    switch (severity) {
-      case 'critical':
-        return '🔴';
-      case 'high':
-        return '🟠';
-      case 'medium':
-        return '🟡';
-      case 'low':
-        return '🔵';
-      default:
-        return '⚪';
-    }
-  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50">
@@ -443,282 +384,15 @@ export default function ProposalPage() {
 
         <div className="grid lg:grid-cols-3 gap-8">
           {/* Main Content */}
-          <div className="lg:col-span-2 space-y-6">
-            {/* Executive Summary */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.1 }}
-            >
-              <Card className="border-0 shadow-lg">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Sparkles className="w-5 h-5 text-indigo-600" />
-                    Executive Summary
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-gray-700 leading-relaxed">
-                    Our AI analysis of <strong>{proposal.repoUrl}</strong> has identified{' '}
-                    <strong>{proposal.analysis.issues.length} issues</strong> and{' '}
-                    <strong>{proposal.analysis.opportunities.length} opportunities</strong>{' '}
-                    for improvement. The analysis reveals a tech stack built on{' '}
-                    <strong>{proposal.analysis.techStack.join(', ')}</strong> with several
-                    areas requiring immediate attention to ensure security, performance, and scalability.
-                  </p>
-                  <div className="mt-4 flex flex-wrap gap-2">
-                    {proposal.analysis.techStack.map((tech) => (
-                      <Badge key={tech} variant="secondary">
-                        {tech}
-                      </Badge>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
+          <div className="lg:col-span-2">
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
+              <DynamicProposalRenderer
+                proposal={proposal}
+                uiConfig={proposal.uiConfiguration}
+                onServiceToggle={toggleService}
+                selectedServices={selectedServices}
+              />
             </motion.div>
-
-            {/* Critical Issues */}
-            {criticalIssues.length > 0 && (
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.2 }}
-              >
-                <Card className="border-0 shadow-lg border-l-4 border-l-red-500">
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2 text-red-600">
-                      <AlertTriangle className="w-5 h-5" />
-                      Critical Issues Found ({criticalIssues.length})
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    {criticalIssues.map((issue, idx) => {
-                      const service = proposal.services.find(
-                        (s) => s.id === issue.recommendedService
-                      );
-                      return (
-                        <div
-                          key={issue.id}
-                          className="p-4 bg-red-50 rounded-lg border border-red-200"
-                        >
-                          <div className="flex items-start justify-between mb-2">
-                            <div className="flex-1">
-                              <div className="flex items-center gap-2 mb-2">
-                                <span>{getSeverityIcon(issue.severity)}</span>
-                                <h3 className="font-semibold text-gray-900">{issue.title}</h3>
-                                <Badge variant={getSeverityColor(issue.severity) as any}>
-                                  {issue.severity}
-                                </Badge>
-                              </div>
-                              <p className="text-gray-700 mb-2">{issue.description}</p>
-                              <p className="text-sm text-gray-600">
-                                <strong>Impact:</strong> {issue.impact}
-                              </p>
-                            </div>
-                          </div>
-                          {service && (
-                            <div className="mt-4 pt-4 border-t border-red-200">
-                              <label className="flex items-start gap-3 cursor-pointer">
-                                <Checkbox
-                                  checked={selectedServices.has(service.id)}
-                                  onChange={() => toggleService(service.id)}
-                                />
-                                <div className="flex-1">
-                                  <div className="flex items-center justify-between">
-                                    <div>
-                                      <p className="font-medium text-gray-900">{service.name}</p>
-                                      <p className="text-sm text-gray-600">{service.description}</p>
-                                    </div>
-                                    <div className="text-right">
-                                      <p className="font-bold text-lg text-gray-900">
-                                        ${service.price.toLocaleString()}
-                                      </p>
-                                      <p className="text-xs text-gray-500 flex items-center gap-1">
-                                        <Calendar className="w-3 h-3" />
-                                        {service.timeline}
-                                      </p>
-                                    </div>
-                                  </div>
-                                </div>
-                              </label>
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </CardContent>
-                </Card>
-              </motion.div>
-            )}
-
-            {/* High Priority Issues */}
-            {highIssues.length > 0 && (
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.3 }}
-              >
-                <Card className="border-0 shadow-lg border-l-4 border-l-orange-500">
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2 text-orange-600">
-                      <AlertTriangle className="w-5 h-5" />
-                      High Priority Issues ({highIssues.length})
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    {highIssues.map((issue) => {
-                      const service = proposal.services.find(
-                        (s) => s.id === issue.recommendedService
-                      );
-                      return (
-                        <div
-                          key={issue.id}
-                          className="p-4 bg-orange-50 rounded-lg border border-orange-200"
-                        >
-                          <div className="flex items-start justify-between mb-2">
-                            <div className="flex-1">
-                              <div className="flex items-center gap-2 mb-2">
-                                <span>{getSeverityIcon(issue.severity)}</span>
-                                <h3 className="font-semibold text-gray-900">{issue.title}</h3>
-                                <Badge variant={getSeverityColor(issue.severity) as any}>
-                                  {issue.severity}
-                                </Badge>
-                              </div>
-                              <p className="text-gray-700 mb-2">{issue.description}</p>
-                              <p className="text-sm text-gray-600">
-                                <strong>Impact:</strong> {issue.impact}
-                              </p>
-                            </div>
-                          </div>
-                          {service && (
-                            <div className="mt-4 pt-4 border-t border-orange-200">
-                              <label className="flex items-start gap-3 cursor-pointer">
-                                <Checkbox
-                                  checked={selectedServices.has(service.id)}
-                                  onChange={() => toggleService(service.id)}
-                                />
-                                <div className="flex-1">
-                                  <div className="flex items-center justify-between">
-                                    <div>
-                                      <p className="font-medium text-gray-900">{service.name}</p>
-                                      <p className="text-sm text-gray-600">{service.description}</p>
-                                    </div>
-                                    <div className="text-right">
-                                      <p className="font-bold text-lg text-gray-900">
-                                        ${service.price.toLocaleString()}
-                                      </p>
-                                      <p className="text-xs text-gray-500 flex items-center gap-1">
-                                        <Calendar className="w-3 h-3" />
-                                        {service.timeline}
-                                      </p>
-                                    </div>
-                                  </div>
-                                </div>
-                              </label>
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </CardContent>
-                </Card>
-              </motion.div>
-            )}
-
-            {/* Medium & Low Issues */}
-            {(mediumIssues.length > 0 || lowIssues.length > 0) && (
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.4 }}
-              >
-                <Card className="border-0 shadow-lg">
-                  <CardHeader>
-                    <CardTitle>Other Issues</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    {[...mediumIssues, ...lowIssues].map((issue) => (
-                      <div key={issue.id} className="p-3 bg-gray-50 rounded-lg">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span>{getSeverityIcon(issue.severity)}</span>
-                          <h4 className="font-medium text-gray-900">{issue.title}</h4>
-                          <Badge variant={getSeverityColor(issue.severity) as any}>
-                            {issue.severity}
-                          </Badge>
-                        </div>
-                        <p className="text-sm text-gray-600">{issue.description}</p>
-                      </div>
-                    ))}
-                  </CardContent>
-                </Card>
-              </motion.div>
-            )}
-
-            {/* Opportunities */}
-            {proposal.analysis.opportunities.length > 0 && (
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.5 }}
-              >
-                <Card className="border-0 shadow-lg border-l-4 border-l-green-500">
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2 text-green-600">
-                      <Lightbulb className="w-5 h-5" />
-                      Opportunities ({proposal.analysis.opportunities.length})
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    {proposal.analysis.opportunities.map((opp) => {
-                      const service = proposal.services.find(
-                        (s) => s.id === opp.recommendedService
-                      );
-                      return (
-                        <div
-                          key={opp.title}
-                          className="p-4 bg-green-50 rounded-lg border border-green-200"
-                        >
-                          <div className="flex items-start gap-2 mb-2">
-                            <Lightbulb className="w-5 h-5 text-green-600 mt-0.5" />
-                            <div className="flex-1">
-                              <h3 className="font-semibold text-gray-900 mb-1">{opp.title}</h3>
-                              <p className="text-gray-700">{opp.description}</p>
-                            </div>
-                          </div>
-                          {service && (
-                            <div className="mt-4 pt-4 border-t border-green-200">
-                              <label className="flex items-start gap-3 cursor-pointer">
-                                <Checkbox
-                                  checked={selectedServices.has(service.id)}
-                                  onChange={() => toggleService(service.id)}
-                                />
-                                <div className="flex-1">
-                                  <div className="flex items-center justify-between">
-                                    <div>
-                                      <p className="font-medium text-gray-900">{service.name}</p>
-                                      <p className="text-sm text-gray-600">{service.description}</p>
-                                    </div>
-                                    <div className="text-right">
-                                      <p className="font-bold text-lg text-gray-900">
-                                        ${service.price.toLocaleString()}
-                                      </p>
-                                      <p className="text-xs text-gray-500 flex items-center gap-1">
-                                        <Calendar className="w-3 h-3" />
-                                        {service.timeline}
-                                      </p>
-                                    </div>
-                                  </div>
-                                </div>
-                              </label>
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </CardContent>
-                </Card>
-              </motion.div>
-            )}
           </div>
 
           {/* Sidebar - Pricing Summary */}

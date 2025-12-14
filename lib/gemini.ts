@@ -1,23 +1,8 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import type { RepoAnalysis, UiConfiguration } from '@/lib/types/proposal';
+import { normalizeUiConfiguration, buildDefaultUiConfiguration } from '@/lib/ui-config';
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
-
-export interface RepoAnalysis {
-  techStack: string[];
-  issues: Array<{
-    id: string;
-    title: string;
-    severity: 'critical' | 'high' | 'medium' | 'low';
-    description: string;
-    impact: string;
-    recommendedService: string;
-  }>;
-  opportunities: Array<{
-    title: string;
-    description: string;
-    recommendedService: string;
-  }>;
-}
 
 export async function analyzeRepository(repoData: {
   repoName: string;
@@ -26,7 +11,7 @@ export async function analyzeRepository(repoData: {
   techStack: string[];
   url?: string; // Optional URL for website analysis
   source?: 'github' | 'website'; // Source type
-}): Promise<RepoAnalysis> {
+}): Promise<RepoAnalysis & { uiConfiguration?: UiConfiguration }> {
   // If no API key, return mock data for demo
   if (!process.env.GEMINI_API_KEY) {
     return getMockAnalysis();
@@ -95,6 +80,17 @@ For each issue found, provide:
 
 Also identify 2-3 opportunities for improvement (optimizations, modernizations, enhancements).
 
+After generating issues and opportunities, ALSO determine the optimal UI presentation for the proposal.
+
+UI RULES (use intelligent defaults):
+- If there are 3+ critical issues (or security risks), use layout "dashboard" with colorScheme "red-alert"
+- If the project is a simple static site with few issues, prefer "linear"
+- If tech stack is complex (many technologies), use "tabbed"
+- If there are significant modernization opportunities, include a "roadmap-timeline" visualization and use layout "timeline"
+- If technical debt is high, include a "tech-debt-chart" visualization
+- If security risks are severe, include a "risk-matrix" visualization
+- If unsure, default layout "linear" and colorScheme "balanced"
+
 Return ONLY valid JSON (no markdown, no code blocks, no explanations) with this exact structure:
 {
   "techStack": ["React", "Node.js"],
@@ -114,7 +110,21 @@ Return ONLY valid JSON (no markdown, no code blocks, no explanations) with this 
       "description": "Description of the opportunity",
       "recommendedService": "tech-stack-migration"
     }
-  ]
+  ],
+  "uiConfiguration": {
+    "layout": "dashboard",
+    "emphasize": "critical-issues",
+    "visualizations": [
+      { "type": "risk-matrix", "data": { "items": [ { "name": "SQL Injection", "severity": 9, "likelihood": 8 } ] } }
+    ],
+    "sections": [
+      { "id": "executive", "order": 1, "style": "prominent" },
+      { "id": "issues", "order": 2, "style": "cards" },
+      { "id": "opportunities", "order": 3, "style": "compact" }
+    ],
+    "colorScheme": "red-alert",
+    "callToAction": { "type": "urgent", "message": "Critical vulnerabilities require immediate attention" }
+  }
 }
 
 CRITICAL: Return ONLY the JSON object, nothing else. No markdown, no code blocks, no explanations.`;
@@ -145,6 +155,17 @@ For each issue found, provide:
 
 Also identify 2-3 opportunities for improvement (optimizations, modernizations, enhancements).
 
+After generating issues and opportunities, ALSO determine the optimal UI presentation for the proposal.
+
+UI RULES (use intelligent defaults):
+- If there are 3+ critical issues (or security risks), use layout "dashboard" with colorScheme "red-alert"
+- If the project is simple with few issues, prefer "linear"
+- If tech stack is complex (many technologies), use "tabbed"
+- If there are significant modernization opportunities, include a "roadmap-timeline" visualization and use layout "timeline"
+- If technical debt is high, include a "tech-debt-chart" visualization
+- If security risks are severe, include a "risk-matrix" visualization
+- If unsure, default layout "linear" and colorScheme "balanced"
+
 Return ONLY valid JSON (no markdown, no code blocks, no explanations) with this exact structure:
 {
   "techStack": ["React", "Node.js"],
@@ -164,7 +185,21 @@ Return ONLY valid JSON (no markdown, no code blocks, no explanations) with this 
       "description": "Description of the opportunity",
       "recommendedService": "tech-stack-migration"
     }
-  ]
+  ],
+  "uiConfiguration": {
+    "layout": "dashboard",
+    "emphasize": "critical-issues",
+    "visualizations": [
+      { "type": "risk-matrix", "data": { "items": [ { "name": "SQL Injection", "severity": 9, "likelihood": 8 } ] } }
+    ],
+    "sections": [
+      { "id": "executive", "order": 1, "style": "prominent" },
+      { "id": "issues", "order": 2, "style": "cards" },
+      { "id": "opportunities", "order": 3, "style": "compact" }
+    ],
+    "colorScheme": "red-alert",
+    "callToAction": { "type": "urgent", "message": "Critical vulnerabilities require immediate attention" }
+  }
 }
 
 CRITICAL: Return ONLY the JSON object, nothing else. No markdown, no code blocks, no explanations.`;
@@ -250,6 +285,21 @@ CRITICAL: Return ONLY the JSON object, nothing else. No markdown, no code blocks
       recommendedService: opp.recommendedService || 'monthly-retainer-basic',
     }));
 
+    // Validate/normalize UI configuration (fallback to heuristic defaults)
+    try {
+      parsed.uiConfiguration = normalizeUiConfiguration(parsed.uiConfiguration, {
+        techStack: parsed.techStack,
+        issues: parsed.issues,
+        opportunities: parsed.opportunities,
+      });
+    } catch (e) {
+      parsed.uiConfiguration = buildDefaultUiConfiguration({
+        techStack: parsed.techStack,
+        issues: parsed.issues,
+        opportunities: parsed.opportunities,
+      });
+    }
+
     console.log('Successfully parsed Gemini response:', {
       techStack: parsed.techStack.length,
       issues: parsed.issues.length,
@@ -270,8 +320,8 @@ CRITICAL: Return ONLY the JSON object, nothing else. No markdown, no code blocks
   }
 }
 
-function getMockAnalysis(): RepoAnalysis {
-  return {
+function getMockAnalysis(): RepoAnalysis & { uiConfiguration?: UiConfiguration } {
+  const analysis: RepoAnalysis = {
     techStack: ['React', 'Node.js', 'MongoDB', 'Express'],
     issues: [
       {
@@ -312,5 +362,6 @@ function getMockAnalysis(): RepoAnalysis {
       },
     ],
   };
+  return { ...analysis, uiConfiguration: buildDefaultUiConfiguration(analysis) };
 }
 

@@ -17,7 +17,7 @@ export async function analyzeConsultingRequest(requestId: string, projectUrl: st
   try {
     // Analyze the project
     const projectData = await analyzeProject(projectUrl);
-    const analysis = await analyzeRepository({
+    const analysisWithUi = await analyzeRepository({
       repoName: projectData.name,
       readme: projectData.content,
       dependencies: projectData.dependencies,
@@ -25,6 +25,7 @@ export async function analyzeConsultingRequest(requestId: string, projectUrl: st
       url: projectData.url,
       source: projectData.source,
     });
+    const { uiConfiguration, ...analysis } = analysisWithUi as any;
 
     // Generate proposal
     const proposalId = crypto.randomUUID();
@@ -35,6 +36,7 @@ export async function analyzeConsultingRequest(requestId: string, projectUrl: st
       clientName: request.businessName,
       repoUrl: request.projectUrl,
       analysis,
+      uiConfiguration,
       services,
       generatedAt: new Date().toISOString(),
     };
