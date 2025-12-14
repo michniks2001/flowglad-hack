@@ -106,6 +106,8 @@ export default function BusinessDashboard() {
     ready: requests.filter((r) => r.status === 'proposal_ready' && r.proposalId).length,
   };
 
+  const displayProjectType = (t: ConsultingRequest['projectType']) => (t === 'github' ? 'GitHub' : 'GitHub');
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
@@ -157,7 +159,7 @@ export default function BusinessDashboard() {
           <CardHeader>
             <CardTitle>Create Consulting Request</CardTitle>
             <CardDescription>
-              Submit your GitHub repository or website URL, and the consultant email to send it to
+              Submit your GitHub repository URL, and the consultant email to send it to
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -181,19 +183,19 @@ export default function BusinessDashboard() {
               </div>
               <div>
                 <label htmlFor="projectUrl" className="block text-sm font-medium text-gray-700 mb-2">
-                  Project URL
+                  GitHub Repository URL
                 </label>
                 <input
                   id="projectUrl"
                   type="url"
                   value={projectUrl}
                   onChange={(e) => setProjectUrl(e.target.value)}
-                  placeholder="https://github.com/username/repo or https://example.com"
+                  placeholder="https://github.com/username/repo"
                   className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent bg-white"
                   required
                 />
                 <p className="mt-1 text-sm text-gray-500">
-                  Enter a GitHub repository URL or website URL
+                  Enter a GitHub repository URL (github.com)
                 </p>
               </div>
               <div className="flex gap-2">
@@ -268,7 +270,7 @@ export default function BusinessDashboard() {
                   </div>
                   <div>
                     <p className="text-sm font-medium text-gray-700">Type:</p>
-                    <Badge variant="outline">{request.projectType}</Badge>
+                    <Badge variant="outline">{displayProjectType(request.projectType)}</Badge>
                   </div>
                   {request.proposalId && (
                     <div>

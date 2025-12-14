@@ -69,6 +69,8 @@ export default function ConsultantDashboard() {
     ready: myRequests.filter((r) => r.status === 'proposal_ready' && r.proposalId).length,
   };
 
+  const displayProjectType = (t: ConsultingRequest['projectType']) => (t === 'github' ? 'GitHub' : 'GitHub');
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
@@ -151,7 +153,7 @@ export default function ConsultantDashboard() {
 
                       <div>
                         <p className="text-sm font-medium text-gray-700">Type:</p>
-                        <Badge variant="outline">{request.projectType}</Badge>
+                        <Badge variant="outline">{displayProjectType(request.projectType)}</Badge>
                       </div>
 
                       {request.status === 'analyzing' && (

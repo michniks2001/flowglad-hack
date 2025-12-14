@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getProposalAsync } from '@/lib/store';
+import { getMockProposal } from '@/lib/mock-data';
 
 export async function GET(
   req: Request,
@@ -8,6 +9,12 @@ export async function GET(
   try {
     const { id } = await params;
     console.log('[API /api/proposal] Fetching proposal with ID:', id);
+
+    // Hard demo fallback: demo proposal should always be available and not depend on DB/in-memory state.
+    if (id === 'demo') {
+      const demo = getMockProposal();
+      return NextResponse.json(demo);
+    }
     
     const proposal = await getProposalAsync(id);
 
@@ -16,7 +23,7 @@ export async function GET(
       return NextResponse.json(
         { 
           error: 'Proposal not found',
-          message: 'The proposal may have expired or the ID is invalid. Proposals are stored in memory and may be lost after server restart.',
+          message: 'The proposal ID is invalid or the proposal is no longer available.',
           id 
         },
         { status: 404 }

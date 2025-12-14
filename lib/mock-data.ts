@@ -70,6 +70,6 @@ export function getMockProposal() {
     ],
     generatedAt: new Date().toISOString(),
   };
-  return { ...proposal, uiConfiguration: buildDefaultUiConfiguration(proposal.analysis) };
+  return { ...proposal, uiConfiguration: buildDefaultUiConfiguration(proposal.analysis, proposal.id) };
 }
 

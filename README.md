@@ -1,6 +1,6 @@
-# AI Consulting Proposal Generator
+# DeepScan
 
-A Next.js application that uses AI to analyze codebases and websites, then generates professional consulting proposals with integrated payment processing.
+A Next.js application that uses AI to analyze GitHub repositories, then generates professional consulting proposals with integrated payment processing.
 
 ## Table of Contents
 
@@ -18,15 +18,15 @@ A Next.js application that uses AI to analyze codebases and websites, then gener
 
 This application helps consultants quickly create personalized, professional proposals for potential clients by:
 
-1. **Analyzing** their GitHub repository or website using AI (Google Gemini)
+1. **Analyzing** their GitHub repository using AI (Google Gemini)
 2. **Identifying** security issues, performance bottlenecks, and opportunities
 3. **Generating** an interactive proposal with recommended services
 4. **Processing** payments directly through Flowglad integration
 
 ### Features
 
-- ✅ AI-powered analysis using Gemini 2.5 Flash Lite
-- ✅ Support for both GitHub repositories and websites
+- ✅ AI-powered analysis using Gemini (gemini-3-pro-preview)
+- ✅ GitHub repository analysis (GitHub-only)
 - ✅ Role-based authentication (Consultants & Businesses)
 - ✅ Interactive proposal viewer with live pricing
 - ✅ Integrated payment processing via Flowglad
@@ -320,18 +320,13 @@ NEXT_PUBLIC_APP_URL='http://localhost:3000'
 
 #### Step 1: Input Client Information
 - Visit the landing page
-- Enter either:
-  - A GitHub repository URL (e.g., `https://github.com/client-org/project`)
-  - A website URL (e.g., `https://client-website.com`)
+- Enter a GitHub repository URL (e.g., `https://github.com/client-org/project`)
 - Click "Analyze & Generate Proposal"
 
 #### Step 2: AI Analysis (Automatic)
 The system automatically:
-1. **Detects URL type** (GitHub vs website)
-2. **Fetches data:**
-   - GitHub: README, dependencies, tech stack
-   - Website: HTML content via Gemini's web search
-3. **Analyzes with Gemini 2.5 Flash Lite:**
+1. **Fetches data** from GitHub: README, dependencies, tech stack
+3. **Analyzes with Gemini (gemini-3-pro-preview):**
    - Identifies critical security issues
    - Finds performance bottlenecks
    - Detects scalability concerns
@@ -516,7 +511,7 @@ app/
 ├── success/                 # Payment success
 └── api/                    # API routes
     ├── auth/[...auth0]/    # Auth0 routes
-    ├── analyze/            # Repository/website analysis
+    ├── analyze/            # Repository analysis
     ├── proposal/[id]/      # Fetch proposal
     ├── checkout/           # Create checkout session
     └── consulting-requests/ # CRUD for requests
@@ -525,8 +520,8 @@ lib/
 ├── auth0.ts                # Auth0 client
 ├── gemini.ts               # Gemini API client
 ├── github.ts               # GitHub API client
-├── website.ts              # Website analysis
-├── project-analyzer.ts     # Unified analyzer
+├── project-analyzer.ts     # GitHub analyzer
+├── website.ts              # (Deprecated) website analyzer (GitHub-only focus)
 ├── flowglad.ts             # Service definitions
 ├── flowglad-client.ts      # Flowglad API client
 ├── mongodb.ts              # MongoDB connection
@@ -552,7 +547,7 @@ components/
 - **UI Components:** shadcn/ui
 - **Authentication:** Auth0 v4
 - **Database:** MongoDB (Mongoose)
-- **AI:** Google Gemini 2.5 Flash Lite
+- **AI:** Google Gemini (gemini-3-pro-preview)
 - **Payments:** Flowglad
 - **Deployment:** Vercel/Netlify ready
 

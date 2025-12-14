@@ -3,6 +3,7 @@ import { analyzeProject } from '@/lib/project-analyzer';
 import { analyzeRepository } from '@/lib/gemini';
 import { mapServicesToProposal } from '@/lib/flowglad';
 import { saveProposalAsync } from '@/lib/store';
+import { isGitHubUrl } from '@/lib/website';
 
 export async function POST(req: Request) {
   try {
@@ -11,14 +12,20 @@ export async function POST(req: Request) {
 
     if (!projectUrl) {
       return NextResponse.json(
-        { error: 'URL is required (GitHub repository or website)' },
+        { error: 'GitHub repository URL is required' },
+        { status: 400 }
+      );
+    }
+    if (!isGitHubUrl(projectUrl)) {
+      return NextResponse.json(
+        { error: 'Only GitHub repository URLs are supported. Please provide a github.com URL.' },
         { status: 400 }
       );
     }
 
     console.log('Starting analysis for:', projectUrl);
 
-    // Step 1: Fetch project data (GitHub or website)
+    // Step 1: Fetch project data (GitHub)
     console.log('Step 1: Fetching project data...');
     const projectData = await analyzeProject(projectUrl);
     console.log('Project data fetched:', {
@@ -30,7 +37,9 @@ export async function POST(req: Request) {
     });
 
     // Step 2: Analyze with Gemini
-    console.log('Step 2: Analyzing with Gemini (gemini-2.5-flash-lite)...');
+    console.log('Step 2: Analyzing with Gemini (gemini-3-pro-preview)...');
+    // Create proposalId early so we can use it as a deterministic UI variation seed.
+    const proposalId = crypto.randomUUID();
     // Convert project data to format expected by Gemini analyzer
     const analysisWithUi = await analyzeRepository({
       repoName: projectData.name,
@@ -39,6 +48,8 @@ export async function POST(req: Request) {
       techStack: projectData.techStack,
       url: projectData.url,
       source: projectData.source,
+      uiSeed: proposalId,
+      files: projectData.files,
     });
     const { uiConfiguration, ...analysis } = analysisWithUi as any;
     console.log('Analysis complete:', {
@@ -49,7 +60,6 @@ export async function POST(req: Request) {
 
     // Step 3: Generate proposal structure
     console.log('Step 3: Generating proposal structure...');
-    const proposalId = crypto.randomUUID();
     const services = mapServicesToProposal(analysis);
     console.log('Services mapped:', services.length);
 

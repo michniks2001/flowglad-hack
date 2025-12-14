@@ -3,6 +3,7 @@ import { analyzeProject } from '@/lib/project-analyzer';
 import { analyzeRepository } from '@/lib/gemini';
 import { mapServicesToProposal } from '@/lib/flowglad';
 import { saveProposalAsync } from '@/lib/store';
+import { isGitHubUrl } from '@/lib/website';
 
 // Shared function to analyze a consulting request
 export async function analyzeConsultingRequest(requestId: string, projectUrl: string) {
@@ -15,8 +16,13 @@ export async function analyzeConsultingRequest(requestId: string, projectUrl: st
   await updateConsultingRequest(requestId, { status: 'analyzing' });
 
   try {
+    if (!isGitHubUrl(projectUrl)) {
+      throw new Error('Only GitHub repository URLs are supported. Please provide a github.com URL.');
+    }
     // Analyze the project
     const projectData = await analyzeProject(projectUrl);
+    // Create proposalId early so we can use it as a deterministic UI variation seed.
+    const proposalId = crypto.randomUUID();
     const analysisWithUi = await analyzeRepository({
       repoName: projectData.name,
       readme: projectData.content,
@@ -24,11 +30,12 @@ export async function analyzeConsultingRequest(requestId: string, projectUrl: st
       techStack: projectData.techStack,
       url: projectData.url,
       source: projectData.source,
+      uiSeed: proposalId,
+      files: projectData.files,
     });
     const { uiConfiguration, ...analysis } = analysisWithUi as any;
 
     // Generate proposal
-    const proposalId = crypto.randomUUID();
     const services = mapServicesToProposal(analysis);
 
     const proposal = {

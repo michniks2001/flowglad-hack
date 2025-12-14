@@ -1,5 +1,5 @@
-import { analyzeRepo, RepoData } from './github';
-import { analyzeWebsite, isGitHubUrl, WebsiteData } from './website';
+import { analyzeRepo } from './github';
+import { isGitHubUrl } from './website';
 
 export interface ProjectData {
   name: string;
@@ -7,12 +7,13 @@ export interface ProjectData {
   content: string;
   dependencies: string[];
   techStack: string[];
-  source: 'github' | 'website';
+  source: 'github';
   url: string;
+  files?: Array<{ path: string; content: string; truncated?: boolean }>;
 }
 
 /**
- * Analyzes either a GitHub repository or a website
+ * Analyzes a GitHub repository (DeepScan currently supports GitHub repos only)
  */
 export async function analyzeProject(url: string): Promise<ProjectData> {
   if (isGitHubUrl(url)) {
@@ -27,20 +28,10 @@ export async function analyzeProject(url: string): Promise<ProjectData> {
       techStack: repoData.techStack,
       source: 'github',
       url: url,
-    };
-  } else {
-    console.log('Detected website URL, analyzing website...');
-    const websiteData = await analyzeWebsite(url);
-    
-    return {
-      name: websiteData.title || new URL(websiteData.url).hostname,
-      description: websiteData.description || 'Website',
-      content: websiteData.content,
-      dependencies: [], // Websites don't have package.json dependencies
-      techStack: websiteData.techStack,
-      source: 'website',
-      url: websiteData.url,
+      files: repoData.files,
     };
   }
+
+  throw new Error('Only GitHub repository URLs are supported. Please provide a github.com URL.');
 }
 

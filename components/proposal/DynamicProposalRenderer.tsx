@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import type { Proposal, UiConfiguration, Severity, Issue, Opportunity } from '@/lib/types/proposal';
-import { buildDefaultUiConfiguration, normalizeUiConfiguration } from '@/lib/ui-config';
+import { finalizeUiConfiguration } from '@/lib/ui-config';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -347,8 +347,7 @@ export function DynamicProposalRenderer({
   selectedServices: Set<string>;
 }) {
   const ui = useMemo(() => {
-    if (!uiConfig) return buildDefaultUiConfiguration(proposal.analysis);
-    return normalizeUiConfiguration(uiConfig, proposal.analysis);
+    return finalizeUiConfiguration(uiConfig ?? null, proposal.analysis, proposal.id);
   }, [uiConfig, proposal.analysis]);
 
   const criticalIssues = useMemo(() => proposal.analysis.issues.filter((i) => i.severity === 'critical'), [proposal]);
@@ -460,7 +459,9 @@ export function DynamicProposalRenderer({
   }
 
   // Non-tabbed layouts: order sections according to ui.sections, with safe fallbacks.
-  const orderedSectionIds = (ui.sections?.length ? ui.sections : buildDefaultUiConfiguration(proposal.analysis).sections)
+  const orderedSectionIds = (ui.sections?.length
+    ? ui.sections
+    : finalizeUiConfiguration(null, proposal.analysis, proposal.id).sections)
     .slice()
     .sort((a, b) => a.order - b.order)
     .map((s) => s.id);

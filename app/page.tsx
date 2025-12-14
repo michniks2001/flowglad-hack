@@ -80,9 +80,7 @@ export default function Home() {
               <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-600 to-purple-600 text-white shadow-sm">
                 <Sparkles className="h-5 w-5" />
               </div>
-              <span className="font-semibold tracking-tight text-gray-900">
-                Flowglad Consulting
-              </span>
+              <span className="font-semibold tracking-tight text-gray-900">DeepScan</span>
             </a>
 
             <nav className="hidden items-center gap-6 text-sm text-gray-600 md:flex">
@@ -122,10 +120,10 @@ export default function Home() {
               </Badge>
 
               <h1 className="text-balance text-4xl font-semibold tracking-tight text-gray-900 md:text-6xl">
-                Turn any repository or website into a paid consulting engagement
+                Turn any GitHub repository into a paid consulting engagement
               </h1>
               <p className="mt-5 max-w-2xl text-pretty text-lg leading-relaxed text-gray-600 md:text-xl">
-                Businesses submit a project and assign a consultant by email. Gemini analyzes the code or site, generates a proposal, and customers can pay for selected services via Flowglad checkout.
+                Businesses submit a GitHub repo and assign a consultant by email. Gemini analyzes the codebase, generates a proposal, and customers can pay for selected services via Flowglad checkout.
               </p>
 
               <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-center">
@@ -155,7 +153,7 @@ export default function Home() {
                   <CreditCard className="h-4 w-4 text-gray-400" /> Flowglad checkout sessions
                 </span>
                 <span className="inline-flex items-center gap-2">
-                  <Globe className="h-4 w-4 text-gray-400" /> GitHub + websites
+                  <Globe className="h-4 w-4 text-gray-400" /> GitHub repositories
                 </span>
               </div>
             </div>
@@ -220,7 +218,7 @@ export default function Home() {
                     <Check className="h-4 w-4" />
                   </div>
                   <p>
-                    Submit a GitHub repo or website URL and assign a consultant by email.
+                    Submit a GitHub repository URL and assign a consultant by email.
                   </p>
                 </div>
                 <div className="flex gap-3">
@@ -445,9 +443,9 @@ export default function Home() {
               </Card>
               <Card className="border-gray-200/70 bg-white/70 backdrop-blur">
                 <CardHeader>
-                  <CardTitle className="text-base">Can I analyze a website instead of GitHub?</CardTitle>
+                  <CardTitle className="text-base">What GitHub URLs are supported?</CardTitle>
                   <CardDescription>
-                    Yes — submit any website URL. The analyzer supports GitHub and websites.
+                    Public repositories on `github.com` (format: `https://github.com/org/repo`).
                   </CardDescription>
                 </CardHeader>
               </Card>
@@ -480,7 +478,7 @@ export default function Home() {
                   <Sparkles className="h-5 w-5" />
                 </div>
                 <div>
-                  <div className="font-semibold text-gray-900">Flowglad Consulting</div>
+                  <div className="font-semibold text-gray-900">DeepScan</div>
                   <div className="text-sm text-gray-600">AI proposals for real engagements.</div>
                 </div>
               </div>

@@ -92,7 +92,7 @@ export default function DashboardPage() {
               <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-600 to-purple-600 text-white shadow-sm">
                 <Sparkles className="h-5 w-5" />
               </div>
-              <span className="font-semibold tracking-tight text-gray-900">Flowglad Consulting</span>
+              <span className="font-semibold tracking-tight text-gray-900">DeepScan</span>
             </a>
 
             <div className="flex items-center gap-3">

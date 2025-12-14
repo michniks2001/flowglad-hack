@@ -94,7 +94,13 @@ export async function POST(req: Request) {
       );
     }
 
-    const projectType = isGitHubUrl(projectUrl) ? 'github' : 'website';
+    if (!isGitHubUrl(projectUrl)) {
+      return NextResponse.json(
+        { error: 'Only GitHub repository URLs are supported. Please provide a github.com URL.' },
+        { status: 400 }
+      );
+    }
+    const projectType = 'github';
 
     const request = await createConsultingRequest({
       businessId: user.auth0Id,

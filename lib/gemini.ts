@@ -1,6 +1,6 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import type { RepoAnalysis, UiConfiguration } from '@/lib/types/proposal';
-import { normalizeUiConfiguration, buildDefaultUiConfiguration } from '@/lib/ui-config';
+import { finalizeUiConfiguration } from '@/lib/ui-config';
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 
@@ -11,14 +11,16 @@ export async function analyzeRepository(repoData: {
   techStack: string[];
   url?: string; // Optional URL for website analysis
   source?: 'github' | 'website'; // Source type
+  uiSeed?: string; // Stable seed to encourage UI variety per proposal
+  files?: Array<{ path: string; content: string; truncated?: boolean }>; // Curated repo file excerpts
 }): Promise<RepoAnalysis & { uiConfiguration?: UiConfiguration }> {
   // If no API key, return mock data for demo
   if (!process.env.GEMINI_API_KEY) {
     return getMockAnalysis();
   }
 
-  // Configure model with web access for website analysis
-  const modelConfig: any = { model: 'gemini-2.5-flash-lite' };
+  // Configure Gemini model
+  const modelConfig: any = { model: 'gemini-3-pro-preview' };
   
   // Enable web search/grounding for website URLs
   if (repoData.source === 'website' && repoData.url) {
@@ -30,8 +32,19 @@ export async function analyzeRepository(repoData: {
   const model = genAI.getGenerativeModel(modelConfig);
 
   // Prepare the prompt with repository data
-  const readmeContent = repoData.readme.substring(0, 4000); // Increased limit for flash-lite
+  const readmeContent = repoData.readme.substring(0, 4000); // Keep prompt bounded
   const dependenciesList = repoData.dependencies.slice(0, 50).join(', '); // Limit dependencies
+  const fileBundle = Array.isArray(repoData.files) && repoData.files.length > 0
+    ? repoData.files
+        .slice(0, 25)
+        .map((f) => {
+          const header = `\n--- FILE: ${f.path}${f.truncated ? ' (truncated)' : ''} ---\n`;
+          // Hard cap again for safety
+          const body = (f.content || '').slice(0, 8000);
+          return header + body;
+        })
+        .join('\n')
+    : '';
 
   // Build prompt based on source type
   let prompt = '';
@@ -39,6 +52,9 @@ export async function analyzeRepository(repoData: {
   if (repoData.source === 'website' && repoData.url) {
     // For websites, instruct Gemini to fetch and analyze the website using web search
     prompt = `You are an expert technical consultant analyzing a website for a consulting proposal.
+
+UI_VARIATION_SEED: ${repoData.uiSeed || repoData.url || repoData.repoName}
+Use this seed to break ties and choose a UI layout/sections/visualizations in a way that is varied across different seeds but consistent for the same seed.
 
 Website URL to analyze: ${repoData.url}
 Website Title: ${repoData.repoName}
@@ -132,11 +148,17 @@ CRITICAL: Return ONLY the JSON object, nothing else. No markdown, no code blocks
     // For GitHub repos, use the provided README content
     prompt = `You are an expert technical consultant analyzing a software project for a consulting proposal.
 
+UI_VARIATION_SEED: ${repoData.uiSeed || repoData.repoName}
+Use this seed to break ties and choose a UI layout/sections/visualizations in a way that is varied across different seeds but consistent for the same seed.
+
 Repository: ${repoData.repoName}
 Tech Stack Detected: ${repoData.techStack.join(', ')}
 README Content:
 ${readmeContent}
 Dependencies (first 50): ${dependenciesList}
+
+Selected Repository Files (excerpts):
+${fileBundle || '(No file excerpts available)'}
 
 Analyze this project and identify:
 1. Critical security issues (focus on vulnerabilities, missing security measures)
@@ -206,7 +228,7 @@ CRITICAL: Return ONLY the JSON object, nothing else. No markdown, no code blocks
   }
 
   try {
-    console.log('Calling Gemini API with model: gemini-2.5-flash-lite');
+    console.log('Calling Gemini API with model: gemini-3-pro-preview');
     const result = await model.generateContent(prompt);
     const response = result.response;
     const text = response.text();
@@ -285,20 +307,16 @@ CRITICAL: Return ONLY the JSON object, nothing else. No markdown, no code blocks
       recommendedService: opp.recommendedService || 'monthly-retainer-basic',
     }));
 
-    // Validate/normalize UI configuration (fallback to heuristic defaults)
-    try {
-      parsed.uiConfiguration = normalizeUiConfiguration(parsed.uiConfiguration, {
+    // Finalize UI configuration with deterministic variation (stable per uiSeed)
+    parsed.uiConfiguration = finalizeUiConfiguration(
+      parsed.uiConfiguration,
+      {
         techStack: parsed.techStack,
         issues: parsed.issues,
         opportunities: parsed.opportunities,
-      });
-    } catch (e) {
-      parsed.uiConfiguration = buildDefaultUiConfiguration({
-        techStack: parsed.techStack,
-        issues: parsed.issues,
-        opportunities: parsed.opportunities,
-      });
-    }
+      },
+      repoData.uiSeed || repoData.url || repoData.repoName
+    );
 
     console.log('Successfully parsed Gemini response:', {
       techStack: parsed.techStack.length,
@@ -362,6 +380,6 @@ function getMockAnalysis(): RepoAnalysis & { uiConfiguration?: UiConfiguration }
       },
     ],
   };
-  return { ...analysis, uiConfiguration: buildDefaultUiConfiguration(analysis) };
+  return { ...analysis, uiConfiguration: finalizeUiConfiguration(null, analysis, 'demo') };
 }
 

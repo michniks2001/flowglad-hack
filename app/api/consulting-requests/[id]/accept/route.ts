@@ -56,6 +56,8 @@ export async function POST(
     // Start analysis
     try {
       const projectData = await analyzeProject(request.projectUrl);
+      // Create proposalId early so we can use it as a deterministic UI variation seed.
+      const proposalId = crypto.randomUUID();
       const analysisWithUi = await analyzeRepository({
         repoName: projectData.name,
         readme: projectData.content,
@@ -63,10 +65,10 @@ export async function POST(
         techStack: projectData.techStack,
         url: projectData.url,
         source: projectData.source,
+        uiSeed: proposalId,
       });
       const { uiConfiguration, ...analysis } = analysisWithUi as any;
 
-      const proposalId = crypto.randomUUID();
       const services = mapServicesToProposal(analysis);
 
       const proposal = {
